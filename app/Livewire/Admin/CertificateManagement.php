@@ -5,30 +5,35 @@ namespace App\Livewire\Admin;
 use App\Models\Certificate;
 use App\Models\Enrollment;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class CertificateManagement extends Component
 {
+    use WithPagination;
+
     public string $searchTerm = '';
-    public ?Certificate $previewCertificate = null;
+
+    // Variables para el modal de previsualización
     public bool $previewDialogOpen = false;
+    public ?Certificate $previewCertificate = null;
 
     public function render()
     {
-        // Buscamos los certificados existentes
+        // 1. Certificados ya emitidos
         $certificates = Certificate::query()
             ->when($this->searchTerm, function ($query) {
                 $query->where('student_name', 'like', '%' . $this->searchTerm . '%')
                     ->orWhere('training_title', 'like', '%' . $this->searchTerm . '%')
                     ->orWhere('certificate_number', 'like', '%' . $this->searchTerm . '%');
             })
-            ->with('user', 'training') // Carga anticipada
-            ->latest() // Ordenar por los más recientes
-            ->get();
+            ->with('user', 'training')
+            ->latest()
+            ->paginate(10);
 
-        // Buscamos inscripciones aprobadas que aún no tienen certificado
+        // 2. Estudiantes aprobados pendientes de certificado
         $pendingEnrollments = Enrollment::where('status', 'Aprobado')
-            ->whereDoesntHave('certificate')
-            ->with(['user', 'trainingSession.training'])
+            ->whereDoesntHave('certificate') // Asumiendo que tienes la relación en el modelo
+            ->with(['user', 'trainingSession'])
             ->get();
 
         return view('livewire.admin.certificate-management', [
@@ -37,14 +42,18 @@ class CertificateManagement extends Component
         ]);
     }
 
-    // Genera un certificado para una inscripción aprobada
-    public function generateCertificate(Enrollment $enrollment)
+    // Generar un nuevo certificado
+    public function generateCertificate($enrollmentId)
     {
-        // Generar un número de certificado único
-        $certificateNumber = 'CERT-' . now()->year . '-' . str_pad(Certificate::count() + 1, 4, '0', STR_PAD_LEFT);
+        $enrollment = Enrollment::with(['user', 'trainingSession'])->find($enrollmentId);
+
+        if (!$enrollment) return;
+
+        // Lógica simple para número de certificado
+        $number = 'CERT-' . now()->year . '-' . str_pad(Certificate::count() + 1, 5, '0', STR_PAD_LEFT);
 
         $certificate = Certificate::create([
-            'certificate_number' => $certificateNumber,
+            'certificate_number' => $number,
             'user_id' => $enrollment->user_id,
             'training_id' => $enrollment->trainingSession->training_id,
             'enrollment_id' => $enrollment->id,
@@ -55,17 +64,15 @@ class CertificateManagement extends Component
             'grade' => $enrollment->grade,
         ]);
 
-        // Asociar el certificado con la inscripción para que no aparezca más como pendiente
-        $enrollment->certificate_id = $certificate->id;
-        $enrollment->save();
+        // Vincular certificado a la inscripción (si tienes la columna certificate_id)
+        // $enrollment->update(['certificate_id' => $certificate->id]);
 
-        session()->flash('success', 'Certificado ' . $certificateNumber . ' generado exitosamente.');
+        session()->flash('success', 'Certificado generado correctamente.');
     }
 
-    // Abre el modal de previsualización
-    public function showPreview(Certificate $certificate)
+    public function showPreview($certificateId)
     {
-        $this->previewCertificate = $certificate;
+        $this->previewCertificate = Certificate::find($certificateId);
         $this->previewDialogOpen = true;
     }
 }

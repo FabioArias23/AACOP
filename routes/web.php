@@ -5,61 +5,51 @@ use Illuminate\Support\Facades\Route;
 use App\Livewire\Admin\CampusManagement;
 use App\Livewire\Admin\Dashboard as AdminDashboard;
 use App\Livewire\Teacher\Dashboard as TeacherDashboard;
-
 use App\Livewire\Student\Dashboard as StudentDashboard;
-// Redirige la ruta raíz a la página de login
+use App\Http\Controllers\ExportController;
+
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// Ruta de dashboard principal - redirige según el rol del usuario
 Route::get('/dashboard', function () {
     $user = auth()->user();
-
-    // Redirigir según el rol del usuario
-    if ($user->role === 'admin') {
-        return redirect()->route('admin.dashboard');
-    }
-
-    if ($user->role === 'teacher') {
-        return redirect()->route('teacher.dashboard');
-    }
-    if ($user->role === 'student') {
-        return redirect()->route('student.dashboard'); // <-- Añade esta redirección
-    }
-    // Para estudiantes u otros roles (puedes agregar más condiciones aquí)
+    if ($user->role === 'admin') return redirect()->route('admin.dashboard');
+    if ($user->role === 'teacher') return redirect()->route('teacher.dashboard');
+    if ($user->role === 'student') return redirect()->route('student.dashboard');
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
+// --- RUTAS ADMIN ---
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
-
-    // Esta es la ruta para acceder a la gestión de sedes
-    Route::get('/sedes', CampusManagement::class)->name('campuses');
-
-});
-// Rutas de administrador
-Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+    // Ruta principal del dashboard que maneja las secciones dinámicas
     Route::get('/dashboard/{section?}', AdminDashboard::class)
         ->name('dashboard')
         ->where('section', 'dashboard|catalog|campus|schedule|participants|attendance|certificates|reports');
 
+    // Ruta individual (si deseas acceder directamente por URL, aunque el dashboard ya lo maneja via section)
     Route::get('/sedes', CampusManagement::class)->name('campuses');
 });
 
-// Rutas de docente
+
+Route::get('/export/participants', [ExportController::class, 'exportParticipants'])
+    ->name('export.participants')
+    ->middleware(['auth', 'verified']); // Asegúrate de proteger la ruta
+
+// --- RUTAS DOCENTE ---
 Route::middleware(['auth', 'verified'])->prefix('teacher')->name('teacher.')->group(function () {
     Route::get('/dashboard/{section?}', TeacherDashboard::class)
         ->name('dashboard')
         ->where('section', 'dashboard|classes|attendance|grades');
 });
-// --- NUEVO GRUPO DE RUTAS PARA ESTUDIANTE ---
+
+// --- RUTAS ESTUDIANTE ---
 Route::middleware(['auth', 'verified'])->prefix('student')->name('student.')->group(function () {
     Route::get('/dashboard/{section?}', StudentDashboard::class)
         ->name('dashboard')
         ->where('section', 'dashboard|courses|enrollments|progress');
 });
 
-// Rutas de perfil
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

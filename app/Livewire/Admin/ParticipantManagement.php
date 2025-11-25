@@ -12,8 +12,6 @@ class ParticipantManagement extends Component
     public string $searchTerm = '';
     public bool $dialogOpen = false;
     public ?User $selectedParticipant = null;
-
-    // Propiedades para el formulario de inscripción
     public $trainingSessionId;
 
     public function render()
@@ -23,11 +21,10 @@ class ParticipantManagement extends Component
                 $query->where('name', 'like', '%' . $this->searchTerm . '%')
                     ->orWhere('email', 'like', '%' . $this->searchTerm . '%');
             })
-            ->with(['enrollments.trainingSession']) // Carga anticipada para optimizar consultas
+            ->with(['enrollments.trainingSession'])
             ->get();
 
-        // Obtenemos las sesiones disponibles para el modal de inscripción
-        $availableSessions = TrainingSession::where('status', 'Programada')->get();
+        $availableSessions = TrainingSession::where('status', 'Programada')->orderBy('date')->get();
 
         return view('livewire.admin.participant-management', [
             'participants' => $participants,
@@ -35,50 +32,65 @@ class ParticipantManagement extends Component
         ]);
     }
 
-    // Abre el modal de inscripción para un participante específico
     public function openEnrollDialog(User $participant)
     {
         $this->selectedParticipant = $participant;
-        $this->reset('trainingSessionId');
+        $this->reset('trainingSessionId', 'dialogOpen');
         $this->dialogOpen = true;
     }
 
-    // Guarda la nueva inscripción
     public function enroll()
     {
-        $this->validate([
-            'trainingSessionId' => 'required|exists:training_sessions,id'
-        ]);
+        $this->validate(['trainingSessionId' => 'required|exists:training_sessions,id']);
 
-        // Verificar si ya está inscrito
-        $alreadyEnrolled = Enrollment::where('user_id', $this->selectedParticipant->id)
+        $exists = Enrollment::where('user_id', $this->selectedParticipant->id)
             ->where('training_session_id', $this->trainingSessionId)
             ->exists();
 
-        if ($alreadyEnrolled) {
-            // Podríamos mostrar un mensaje de error aquí
-            session()->flash('error', 'Este participante ya está inscrito en esta sesión.');
-            $this->dialogOpen = false;
+        if ($exists) {
+            session()->flash('error', 'El participante ya está inscrito.');
             return;
         }
 
         Enrollment::create([
             'user_id' => $this->selectedParticipant->id,
             'training_session_id' => $this->trainingSessionId,
+            'status' => 'Inscrito',
+            'attendance' => 0
         ]);
 
-        session()->flash('success', '¡Participante inscrito correctamente!');
+        session()->flash('success', 'Inscripción exitosa.');
         $this->dialogOpen = false;
     }
 
-    // Función de ayuda para los colores de los badges
-    public function getStatusBadgeClass(string $status): string
+    // Configuración exacta de colores e iconos según el diseño React
+    public function getStatusConfig(string $status): array
     {
-        return [
-            'Inscrito' => 'bg-[#38C0E3]/10 text-[#38C0E3] dark:bg-[#38C0E3]/20',
-            'Completado' => 'bg-[#00A885]/10 text-[#00A885] dark:bg-[#00A885]/20',
-            'En progreso' => 'bg-[#FFD700]/10 text-[#B8860B] dark:bg-[#FFD700]/20 dark:text-[#FFD700]',
-            'Cancelado' => 'bg-[#ED1C24]/10 text-[#ED1C24] dark:bg-[#ED1C24]/20',
-        ][$status] ?? 'bg-muted text-muted-foreground';
+        return match ($status) {
+            'Inscrito' => [
+                // Celeste
+                'class' => 'bg-[#38C0E3]/10 text-[#38C0E3]',
+                'icon' => 'lucide-clock'
+            ],
+            'Completado' => [
+                // Verde
+                'class' => 'bg-[#00A885]/10 text-[#00A885]',
+                'icon' => 'lucide-check-circle-2'
+            ],
+            'En progreso' => [
+                // Dorado/Amarillo
+                'class' => 'bg-[#FFD700]/10 text-[#B8860B]',
+                'icon' => 'lucide-clock'
+            ],
+            'Cancelado', 'Reprobado' => [
+                // Rojo
+                'class' => 'bg-[#ED1C24]/10 text-[#ED1C24]',
+                'icon' => 'lucide-x-circle'
+            ],
+            default => [
+                'class' => 'bg-gray-100 text-gray-600',
+                'icon' => 'lucide-circle'
+            ],
+        };
     }
 }

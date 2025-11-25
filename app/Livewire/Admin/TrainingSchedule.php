@@ -13,14 +13,14 @@ class TrainingSchedule extends Component
     public $selectedDate;
     public bool $dialogOpen = false;
 
-    // Estado del formulario
+    // Propiedades del formulario
     public $training_id = '';
     public $campus_id = '';
     public $date = '';
     public $start_time = '09:00';
     public $end_time = '13:00';
-    public $capacity = 20;
-    public $instructor = ''; // Se autocompletará al elegir el training
+    public $capacity = 0;
+    public $instructor = '';
 
     public function mount()
     {
@@ -28,7 +28,7 @@ class TrainingSchedule extends Component
         $this->date = $this->selectedDate;
     }
 
-    // Cuando cambia el Training ID, autocompletamos instructor y capacidad sugerida
+    // Cuando se selecciona una capacitación, autocompletamos datos sugeridos
     public function updatedTrainingId($value)
     {
         $training = Training::find($value);
@@ -38,6 +38,7 @@ class TrainingSchedule extends Component
         }
     }
 
+    // Cuando cambia la fecha del calendario, actualizamos el formulario también
     public function updatedSelectedDate($value)
     {
         $this->date = $value;
@@ -47,6 +48,9 @@ class TrainingSchedule extends Component
     {
         $this->reset(['training_id', 'campus_id', 'start_time', 'end_time', 'instructor']);
         $this->date = $this->selectedDate;
+        // Valores por defecto
+        $this->start_time = '09:00';
+        $this->end_time = '13:00';
         $this->dialogOpen = true;
     }
 
@@ -59,51 +63,54 @@ class TrainingSchedule extends Component
             'start_time' => 'required',
             'end_time' => 'required|after:start_time',
             'capacity' => 'required|integer|min:1',
+            'instructor' => 'required|string',
         ]);
 
+        // Obtenemos los modelos para llenar los campos denormalizados (título, nombre sede, etc.)
         $training = Training::find($this->training_id);
         $campus = Campus::find($this->campus_id);
 
         TrainingSession::create([
-            'training_id' => $training->id,
-            'campus_id' => $campus->id,
-            // Desnormalización requerida por la migración original:
+            'training_id' => $this->training_id,
+            'campus_id' => $this->campus_id,
             'training_title' => $training->title,
             'campus_name' => $campus->name,
-            'instructor' => $this->instructor ?: $training->instructor,
+            'instructor' => $this->instructor,
             'date' => $this->date,
             'start_time' => $this->start_time,
             'end_time' => $this->end_time,
             'capacity' => $this->capacity,
-            'status' => 'Programada'
+            'status' => 'Programada',
+            'registered' => 0
         ]);
 
         session()->flash('success', 'Sesión programada exitosamente.');
         $this->dialogOpen = false;
+
+        // Reseteamos el formulario
+        $this->reset(['training_id', 'campus_id', 'instructor']);
     }
 
     public function render()
     {
-        $date = Carbon::parse($this->selectedDate);
-
-        // Obtener sesiones de la fecha seleccionada
-        $sessionsOnSelectedDate = TrainingSession::whereDate('date', $date)
+        // 1. Obtener sesiones de la fecha seleccionada en el input date
+        $sessionsOnDate = TrainingSession::whereDate('date', $this->selectedDate)
             ->orderBy('start_time')
             ->get();
 
-        // Obtener próximas sesiones
-        $upcomingSessions = TrainingSession::where('date', '>=', now()->startOfDay())
+        // 2. Obtener próximas sesiones (independiente de la fecha seleccionada)
+        $upcomingSessions = TrainingSession::where('date', '>=', now())
             ->orderBy('date')
             ->orderBy('start_time')
-            ->limit(5)
+            ->take(5)
             ->get();
 
-        // Datos para los select del formulario
+        // 3. Listas para los select del formulario
         $trainings = Training::where('status', 'Activo')->get();
         $campuses = Campus::where('status', 'Activo')->get();
 
         return view('livewire.admin.training-schedule', [
-            'sessionsOnSelectedDate' => $sessionsOnSelectedDate,
+            'sessionsOnDate' => $sessionsOnDate,
             'upcomingSessions' => $upcomingSessions,
             'trainings' => $trainings,
             'campuses' => $campuses,
