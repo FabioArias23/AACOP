@@ -9,24 +9,24 @@ services:
         container_name: aacop-app
         restart: unless-stopped
         ports:
-            # CORREGIDO: Mapeamos puerto 8000 de tu PC al 80 del contenedor (Web)
-            - "8000:80"
+            # CORRECCIÓN: Mapeamos el puerto 8000 de tu PC al 10000 del contenedor
+            # (Porque tu nginx.conf tiene 'listen 10000;')
+            - "8000:10000"
         volumes:
+            # Sincronizamos código local para desarrollo
             - .:/var/www/html
+            # EXCEPCIÓN: No sobrescribir node_modules del contenedor con el local si no existe
+            - /var/www/html/node_modules
         environment:
             APP_ENV: local
             APP_DEBUG: true
             APP_KEY: ${APP_KEY}
-
-            # Configuración de Base de Datos
             DB_CONNECTION: pgsql
             DB_HOST: db
             DB_PORT: 5432
             DB_DATABASE: aacop_local
             DB_USERNAME: postgres
             DB_PASSWORD: password
-
-            # ⚠️ CAMBIO CRUCIAL AQUÍ: Desactivar SSL para conexión local entre contenedores
             DB_SSLMODE: prefer
         depends_on:
             - db
@@ -43,7 +43,6 @@ services:
             POSTGRES_USER: postgres
             POSTGRES_PASSWORD: password
         ports:
-            # CORREGIDO: Usamos el puerto 5434 en tu PC para evitar el error "port already allocated"
             - "5434:5432"
         volumes:
             - pgdata:/var/lib/postgresql/data

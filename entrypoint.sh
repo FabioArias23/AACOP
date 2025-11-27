@@ -3,33 +3,51 @@ set -e
 
 echo "🚀 Iniciando contenedor en Producción..."
 
-# 1. Eliminar .env residual si existe
-if [ -f .env ]; then
-    rm .env
-fi
-
-# 2. Ajustar permisos
+# 1. Ajustar permisos
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# 3. TRUCO IMPORTANTE: Borrar caché manualmente (sin usar artisan)
-# Esto evita que artisan intente conectarse a la DB antes de tiempo
-echo "🧹 Eliminando archivos de caché manualmente..."
-rm -f /var/www/html/bootstrap/cache/*.php
+# 2. Limpiar cachés antiguos
+echo "🧹 Limpiando cachés..."
+rm -rf /var/www/html/bootstrap/cache/*.php
+php artisan config:clear || true
+php artisan cache:clear || true
+php artisan view:clear || true
 
-# 4. Generar la configuración PRIMERO (para que lea las variables de Render)
-echo "🔥 Generando configuración nueva..."
+# 3. Generar configuración con variables de Render
+echo "🔥 Generando configuración..."
 php artisan config:cache
 
-# 5. AHORA SÍ podemos ejecutar comandos que usen la DB
+# 4. Ejecutar migraciones
 echo "📦 Ejecutando migraciones..."
-php artisan migrate --force
+php artisan migrate --force --no-interaction
 
-# 6. Resto de cachés
-echo "⚡ Cacheando rutas y vistas..."
+# 5. Optimizaciones
+echo "⚡ Optimizando aplicación..."
 php artisan route:cache
 php artisan view:cache
 php artisan event:cache
 
-echo "✅ Servidor listo. Iniciando Supervisor..."
+# 6. Crear link simbólico para storage (si no existe)
+php artisan storage:link || true
+
+echo "✅ Aplicación lista. Iniciando servicios..."
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+```
+
+---
+
+## ✅ 5. **`.dockerignore` - CREAR ESTE ARCHIVO**
+```
+.git
+.env
+node_modules
+vendor
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
+.phpunit.result.cache
+*.log
+.DS_Store
