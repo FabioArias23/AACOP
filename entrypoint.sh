@@ -22,6 +22,12 @@ php artisan config:cache
 echo "📦 Ejecutando migraciones..."
 php artisan migrate --force --no-interaction
 
+echo "⚡ Publicando assets de Livewire..."
+php artisan livewire:publish --assets || true
+
+echo "✅ Aplicación lista. Iniciando servicios..."
+exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+
 # 5. Optimizaciones
 echo "⚡ Optimizando aplicación..."
 php artisan route:cache
