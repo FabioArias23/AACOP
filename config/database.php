@@ -83,7 +83,7 @@ return [
             ]) : [],
         ],
 
-       'pgsql' => [
+      'pgsql' => [
     'driver' => 'pgsql',
     'url' => env('DB_URL'),
     'host' => env('DB_HOST', '127.0.0.1'),
@@ -97,10 +97,11 @@ return [
     'search_path' => 'public',
     'sslmode' => env('DB_SSLMODE', 'prefer'),
 
-    // 🔥 Agrega esto:
+    // 🔥 ESTA ES LA CORRECCIÓN CRÍTICA:
     'options' => [
-        PDO::ATTR_TIMEOUT => 30,
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        \PDO::ATTR_EMULATE_PREPARES => true, // <--- ESTO ES LO QUE ARREGLA EL ERROR DE REPORTS
+        \PDO::ATTR_TIMEOUT => 30,
+        \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
     ],
 ],
 
