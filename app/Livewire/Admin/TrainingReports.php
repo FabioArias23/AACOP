@@ -46,17 +46,19 @@ class TrainingReports extends Component
     public function prepareCharts()
     {
         // 1. Gráfico de Línea: Inscripciones por Mes (Últimos 6 meses)
-        // Nota: Si usas SQLite, cambia DATE_FORMAT por strftime
+        // 🔥 CORRECCIÓN: Usamos TO_CHAR para PostgreSQL en lugar de DATE_FORMAT
         $monthlyStats = Enrollment::select(
-            DB::raw("DATE_FORMAT(created_at, '%b') as month"),
+            DB::raw("TO_CHAR(created_at, 'Mon') as month"),
             DB::raw('count(*) as total')
         )
         ->where('created_at', '>=', now()->subMonths(6))
         ->groupBy('month')
-        ->orderBy('created_at')
+        // En Postgres necesitamos agrupar también por la fecha para ordenar, o usar min/max
+        // Para simplificar el ordenamiento en el gráfico sin complicar la query SQL:
+        ->orderByRaw("MIN(created_at)")
         ->get();
 
-        // Si no hay datos, ponemos datos dummy para que el gráfico no se vea vacío al inicio
+        // Si no hay datos, ponemos datos dummy
         if ($monthlyStats->isEmpty()) {
             $months = ['Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov'];
             $data = [0, 0, 0, 0, 0, 0];
@@ -110,13 +112,15 @@ class TrainingReports extends Component
         ];
 
         // 4. Gráfico Horizontal: Notas
+        // Postgres usa comillas dobles para alias o texto literal en CASE a veces requiere cuidado
+        // Usamos sintaxis estándar SQL compatible
         $grades = Enrollment::select(
-            DB::raw('CASE
-                WHEN grade >= 9 THEN "Excelente (9-10)"
-                WHEN grade >= 7 THEN "Bueno (7-8.9)"
-                WHEN grade >= 6 THEN "Regular (6-6.9)"
-                ELSE "Bajo (<6)"
-            END as range_grade'),
+            DB::raw("CASE
+                WHEN grade >= 9 THEN 'Excelente (9-10)'
+                WHEN grade >= 7 THEN 'Bueno (7-8.9)'
+                WHEN grade >= 6 THEN 'Regular (6-6.9)'
+                ELSE 'Bajo (<6)'
+            END as range_grade"),
             DB::raw('count(*) as total')
         )
         ->whereNotNull('grade')
