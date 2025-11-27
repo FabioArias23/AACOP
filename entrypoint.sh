@@ -1,23 +1,22 @@
 #!/bin/sh
-
-# Salir si ocurre un error
 set -e
 
-# Ejecutar migraciones (Importante para producción)
-echo "Ejecutando migraciones..."
+echo "🚀 Iniciando contenedor en Producción..."
+
+# Si no existe la key, generarla (solo por seguridad, idealmente ya viene en ENV)
+if [ -z "$APP_KEY" ]; then
+    echo "Generando APP_KEY..."
+    php artisan key:generate
+fi
+
+echo "📦 Ejecutando migraciones..."
 php artisan migrate --force
 
-# Caching de configuración, rutas y vistas para optimizar velocidad
-echo "Cacheando configuración..."
+echo "🔥 Optimizando Laravel..."
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
-php artisan event:cache
 
-# Iniciar PHP-FPM en segundo plano
-echo "Iniciando PHP-FPM..."
-php-fpm -D
-
-# Iniciar Nginx en primer plano
-echo "Iniciando Nginx..."
-nginx -g "daemon off;"
+echo "⚡ Iniciando Supervisor..."
+# En Alpine, la ruta de supervisord suele ser esta:
+exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf

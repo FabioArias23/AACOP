@@ -1,67 +1,59 @@
 version: '3.8'
 
 services:
-
-    # 1. Servicio de la Aplicación/PHP (php-fpm)
+    # 1. Servicio Principal (Web App)
     app:
         build:
             context: .
             dockerfile: Dockerfile
-        container_name: laravel-app
-        restart: unless-stopped
-        working_dir: /var/www/html
-        volumes:
-            # Monta tu código local en el contenedor
-            - .:/var/www/html
-            # Monta el archivo .env de tu proyecto en el contenedor
-            - ./.env:/var/www/html/.env
-        networks:
-            - laravel-network
-
-    # 2. Servicio del Servidor Web (Nginx)
-    web:
-        image: nginx:alpine
-        container_name: laravel-web
+        container_name: aacop-app
         restart: unless-stopped
         ports:
-            # Expone el puerto 80 del contenedor al puerto 8080 de tu máquina local
-            - 8080:80
+            # CORREGIDO: Mapeamos puerto 8000 de tu PC al 80 del contenedor (Web)
+            - "8000:80"
         volumes:
-            # Monta tu código (es necesario para servir archivos estáticos)
             - .:/var/www/html
-            # Monta tu archivo de configuración de Nginx
-            - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-        depends_on:
-            - app
-        networks:
-            - laravel-network
+        environment:
+            APP_ENV: local
+            APP_DEBUG: true
+            APP_KEY: ${APP_KEY}
 
-    # 3. Servicio de la Base de Datos (MySQL/MariaDB)
+            # Configuración de Base de Datos
+            DB_CONNECTION: pgsql
+            DB_HOST: db
+            DB_PORT: 5432
+            DB_DATABASE: aacop_local
+            DB_USERNAME: postgres
+            DB_PASSWORD: password
+
+            # ⚠️ CAMBIO CRUCIAL AQUÍ: Desactivar SSL para conexión local entre contenedores
+            DB_SSLMODE: prefer
+        depends_on:
+            - db
+        networks:
+            - aacop-network
+
+    # 2. Base de Datos (PostgreSQL)
     db:
-        image: mariadb:10.5
-        container_name: laravel-db
+        image: postgres:15-alpine
+        container_name: aacop-db
         restart: unless-stopped
         environment:
-            # IMPORTANTE: Cambia estos valores para que coincidan con tu archivo .env
-            MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-            MYSQL_DATABASE: ${DB_DATABASE}
-            MYSQL_USER: ${DB_USERNAME}
-            MYSQL_PASSWORD: ${DB_PASSWORD}
+            POSTGRES_DB: aacop_local
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: password
         ports:
-            # Expone el puerto de la base de datos (opcional para desarrollo)
-            - 3306:3306
+            # CORREGIDO: Usamos el puerto 5434 en tu PC para evitar el error "port already allocated"
+            - "5434:5432"
         volumes:
-            # Persistencia de los datos de la base de datos
-            - dbdata:/var/lib/mysql
+            - pgdata:/var/lib/postgresql/data
         networks:
-            - laravel-network
+            - aacop-network
 
-# Redes
 networks:
-    laravel-network:
+    aacop-network:
         driver: bridge
 
-# Volúmenes
 volumes:
-    dbdata:
+    pgdata:
         driver: local

@@ -1,128 +1,123 @@
 # ----------------------------------------------------------------------------------
-# ETAPA 1: BUILD (Construir la aplicación)
+# ETAPA 1: BUILD (Construir assets y dependencias)
 # ----------------------------------------------------------------------------------
-FROM php:8.2-fpm-alpine AS builder
+# CAMBIO: Subimos a PHP 8.3 para compatibilidad con tus dependencias
+FROM php:8.3-fpm-alpine AS builder
 
-# Instalar dependencias del sistema y extensiones de PHP
+WORKDIR /app
+
+# 1. Instalar dependencias del sistema necesarias para compilar extensiones PHP
 RUN apk add --no-cache \
     git \
     curl \
     unzip \
+    zlib-dev \
     libzip-dev \
     libpng-dev \
-    jpeg-dev \
+    libjpeg-turbo-dev \
     freetype-dev \
-    oniguruma-dev \
-    supervisor \
     postgresql-dev \
-    && docker-php-ext-install pdo_pgsql pdo_mysql mbstring zip exif pcntl \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd
+    linux-headers \
+    nodejs \
+    npm \
+    autoconf \
+    g++ \
+    make
 
-# Instalar Composer
+# 2. Configurar e instalar extensiones de PHP
+# NOTA: En PHP 8.3, docker-php-ext-install se encarga de zlib si libzip-dev está presente
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+        pdo_mysql \
+        pdo_pgsql \
+        zip \
+        exif \
+        pcntl \
+        gd
+
+# 3. Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Establecer directorio de trabajo
-WORKDIR /app
+# 4. Copiar archivos de dependencias primero (Caché de Docker)
+COPY composer.json composer.lock package.json package-lock.json ./
 
-# Copiar archivos del proyecto
+# 5. Instalar dependencias
+# Agregamos --ignore-platform-reqs por si hay alguna librería rebelde, pero con PHP 8.3 debería ir bien
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+
+# 6. Copiar el resto del código y compilar assets
 COPY . .
-
-# Instalar dependencias de PHP optimizadas para producción
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+RUN npm ci && npm run build
 
 # ----------------------------------------------------------------------------------
-# ETAPA 2: PRODUCCIÓN
+# ETAPA 2: PRODUCCIÓN (Imagen final ligera)
 # ----------------------------------------------------------------------------------
-FROM php:8.2-fpm-alpine AS production
+FROM php:8.3-fpm-alpine
 
-# Ejecutar como root temporalmente para configuración
-USER root
+WORKDIR /var/www/html
 
-# Instalar dependencias del sistema y extensiones PHP
-RUN apk add --no-cache --virtual .build-deps \
-    libzip-dev \
-    libpng-dev \
-    jpeg-dev \
-    freetype-dev \
-    oniguruma-dev \
-    postgresql-dev \
-    && apk add --no-cache \
+# 1. Instalar dependencias de ejecución (Runtime)
+RUN apk add --no-cache \
     nginx \
     supervisor \
     libpng \
-    libjpeg \
+    libjpeg-turbo \
     freetype \
     libzip \
     postgresql-libs \
-    && docker-php-ext-install pdo_pgsql pdo_mysql mbstring zip exif pcntl \
+    icu-libs \
+    zlib
+
+# 2. Instalar dependencias de compilación TEMPORALES
+RUN set -ex \
+    && apk add --no-cache --virtual .build-deps \
+        autoconf \
+        g++ \
+        make \
+        zlib-dev \
+        libzip-dev \
+        libpng-dev \
+        libjpeg-turbo-dev \
+        freetype-dev \
+        postgresql-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd \
+    && docker-php-ext-install -j$(nproc) \
+        pdo_mysql \
+        pdo_pgsql \
+        zip \
+        exif \
+        pcntl \
+        gd \
     && apk del .build-deps
 
-# Copiar aplicación desde la etapa de build
+# 3. Crear estructura de carpetas de Laravel
+RUN mkdir -p \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/framework/cache/data \
+    storage/logs \
+    bootstrap/cache
+
+# 4. Copiar configuración base .env
+COPY .env.example .env
+
+# 5. Copiar código compilado desde la etapa builder
 COPY --from=builder /app /var/www/html
 
-# Crear todos los directorios necesarios con estructura completa
-RUN mkdir -p \
-    /var/www/html/storage/framework/sessions \
-    /var/www/html/storage/framework/views \
-    /var/www/html/storage/framework/cache/data \
-    /var/www/html/storage/app/public \
-    /var/www/html/storage/logs \
-    /var/www/html/bootstrap/cache \
-    /tmp/nginx_client_temp \
-    /tmp/nginx_proxy_temp \
-    /tmp/nginx_fastcgi_temp \
-    /tmp/nginx_uwsgi_temp \
-    /tmp/nginx_scgi_temp
+# 6. Copiar configuraciones de Nginx y Supervisor
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
+COPY nginx/php-fpm.conf /usr/local/etc/php-fpm.d/www.conf
+COPY nginx/supervisor.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Asignar permisos correctos a directorios
-RUN chown -R www-data:www-data \
-    /var/www/html/storage \
-    /var/www/html/bootstrap/cache \
-    /tmp/nginx_* \
-    && chmod -R 775 \
-    /var/www/html/storage \
-    /var/www/html/bootstrap/cache \
-    /tmp/nginx_*
+# 7. Copiar script de entrada
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# Configurar PHP para logging correcto
-RUN echo "display_errors = Off" >> /usr/local/etc/php/conf.d/docker-php-errors.ini \
-    && echo "display_startup_errors = Off" >> /usr/local/etc/php/conf.d/docker-php-errors.ini \
-    && echo "log_errors = On" >> /usr/local/etc/php/conf.d/docker-php-errors.ini \
-    && echo "error_log = /dev/stderr" >> /usr/local/etc/php/conf.d/docker-php-errors.ini \
-    && echo "error_reporting = E_ALL" >> /usr/local/etc/php/conf.d/docker-php-errors.ini
+# 8. Permisos
+RUN chmod +x /usr/local/bin/entrypoint.sh \
+    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Copiar archivo .env (asegúrate de que exista en tu proyecto)
-COPY .env /var/www/html/.env
-
-# Dar permisos al archivo .env
-RUN chown www-data:www-data /var/www/html/.env \
-    && chmod 644 /var/www/html/.env
-
-# Limpiar todos los caches de Laravel
-RUN php /var/www/html/artisan config:clear || true \
-    && php /var/www/html/artisan cache:clear || true \
-    && php /var/www/html/artisan view:clear || true \
-    && php /var/www/html/artisan route:clear || true
-
-# Copiar configuraciones de Nginx y Supervisor
-COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
-COPY ./nginx/supervisor.conf /etc/supervisor/conf.d/supervisor.conf
-
-# Dar permisos correctos a archivos de configuración
-RUN chmod 644 /etc/nginx/nginx.conf \
-    && chmod 644 /etc/supervisor/conf.d/supervisor.conf
-
-# Verificar que la sintaxis de Nginx sea correcta
-RUN nginx -t
-
-# Cambiar al usuario sin privilegios (www-data)
-USER www-data
-
-# Exponer puerto HTTP
+# Exponer puerto 80 para Render
 EXPOSE 80
 
-# Comando de inicio usando Supervisor
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisor.conf"]
+# Comando de inicio
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
