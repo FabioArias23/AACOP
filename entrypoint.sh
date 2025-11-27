@@ -14,7 +14,7 @@ php artisan config:clear || true
 php artisan cache:clear || true
 php artisan view:clear || true
 
-# 3. Generar configuración con variables de Render
+# 3. Generar configuración
 echo "🔥 Generando configuración..."
 php artisan config:cache
 
@@ -22,38 +22,18 @@ php artisan config:cache
 echo "📦 Ejecutando migraciones..."
 php artisan migrate --force --no-interaction
 
-echo "⚡ Publicando assets de Livewire..."
-php artisan livewire:publish --assets || true
-
-echo "✅ Aplicación lista. Iniciando servicios..."
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
-
 # 5. Optimizaciones
 echo "⚡ Optimizando aplicación..."
 php artisan route:cache
 php artisan view:cache
 php artisan event:cache
 
-# 6. Crear link simbólico para storage (si no existe)
+# 6. Publicar assets de Livewire (NUEVO)
+echo "🎨 Publicando assets de Livewire..."
+php artisan livewire:publish --assets || true
+
+# 7. Crear link simbólico para storage
 php artisan storage:link || true
 
 echo "✅ Aplicación lista. Iniciando servicios..."
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
-```
-
----
-
-## ✅ 5. **`.dockerignore` - CREAR ESTE ARCHIVO**
-```
-.git
-.env
-node_modules
-vendor
-storage/logs/*
-storage/framework/cache/*
-storage/framework/sessions/*
-storage/framework/views/*
-bootstrap/cache/*
-.phpunit.result.cache
-*.log
-.DS_Store
