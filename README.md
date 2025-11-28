@@ -153,7 +153,8 @@ npm run dev
 php artisan serve
 
 
-📁 Estructura del Proyecto
+
+## 💻 Estructura del proyecto
 
 app/
   Http/
@@ -168,7 +169,13 @@ database/
 routes/
   web.php
 
-  👨‍💻 Equipo de Desarrollo
+  
+  
+  
+  
+  
+  
+## 👨‍💻 Equipo de Desarrollo
 
 🎨 María Teresa Zamboni — Frontend · UI/UX · Livewire
 
