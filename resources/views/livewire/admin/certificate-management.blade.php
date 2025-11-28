@@ -38,7 +38,7 @@
                         <div class="p-4 hover:bg-gray-50 transition-colors">
                             <div class="flex justify-between items-start mb-2">
                                 <span class="font-bold text-gray-900">{{ $enrollment->user->name }}</span>
-                                <!-- CORRECCIÓN AQUÍ: Se eliminó el signo % -->
+                                <!-- CORRECCIÓN 1: Sin porcentaje en la lista -->
                                 <span class="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded">Nota: {{ $enrollment->grade }}</span>
                             </div>
                             <p class="text-sm text-gray-600 mb-3">{{ $enrollment->trainingSession->training_title }}</p>
@@ -169,7 +169,8 @@
 
                         <div class="flex justify-between w-full max-w-3xl mt-8 px-10">
                             <div class="text-center">
-                                <p class="font-bold text-gray-900 text-lg">{{ $previewCertificate->grade }}%</p>
+                                <!-- CORRECCIÓN 2: Sin porcentaje en la vista previa/impresión -->
+                                <p class="font-bold text-gray-900 text-lg">{{ $previewCertificate->grade }}</p>
                                 <div class="h-px w-32 bg-gray-400 my-2"></div>
                                 <p class="text-xs text-gray-500 uppercase">Calificación Final</p>
                             </div>
