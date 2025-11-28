@@ -1,193 +1,181 @@
-📘 AACOP – Sistema de Gestión de Capacitaciones — UTN FSA
+# 🟦✨ AACOP – Sistema de Gestión de Capacitaciones (TFI UTN FSA) ✨🟦
 
-Sistema web desarrollado como Trabajo Final Integrador (TFI) para la Tecnicatura Universitaria en Programación – UTN FSA.
-Permite gestionar capacitaciones, participantes, docentes, asistencias, notas finales y certificados, integrando flujos completos para la administración interna.
+Sistema web desarrollado como Trabajo Final Integrador para la Tecnicatura Universitaria en Programación – UTN FSA.  
+Permite gestionar capacitaciones, docentes, participantes, asistencias, notas finales y certificados mediante flujos académicos completos.
 
-El proyecto fue implementado utilizando Laravel 12, Livewire 3, TailwindCSS, MySQL/SQLite, y buenas prácticas de arquitectura MVC.
+---
 
-✏️ Descripción general
+## 📝 Descripción General
 
-AACOP permite administrar de forma centralizada procesos académicos internos relacionados con cursos y capacitaciones.
+AACOP centraliza la administración de capacitaciones internas, simplificando tareas administrativas y académicas.
 
-Funcionalidades principales:
+### 🚀 Funcionalidades principales
 
-Registro e inicio de sesión.
+- 🔐 Autenticación de usuarios  
+- 👥 Roles diferenciados:
+  - 🛡️ Administrador
+  - 🧑‍🏫 Docente
+  - 🎓 Participante  
+- 📚 CRUD de capacitaciones  
+- 📝 Inscripciones con validación de cupos  
+- 📅 Gestión de asistencias  
+- 🧮 Carga de notas finales  
+- 🏅 Emisión automática de certificados  
+- 📊 Panel administrativo con métricas  
+- ⚡ Componentes Livewire (acciones en tiempo real)  
+- 📱 Interfaz responsive con TailwindCSS  
+- 💾 Migraciones y Seeders  
 
-Roles diferenciados:
+---
 
-Administrador
+## 📂 Módulos Principales
 
-Docente
+### 🛡️ Administrador
+- Crear / editar / eliminar capacitaciones  
+- Asignar docentes  
+- Ver inscriptos  
+- Gestionar asistencia  
+- Administrar notas finales  
+- Emitir certificados  
+- Ver estadísticas del sistema  
 
-Participante
+### 🧑‍🏫 Docente
+- Visualizar capacitaciones asignadas  
+- Gestionar asistencias  
+- Cargar notas finales  
+- Ver listado de alumnos  
 
-CRUD completo de capacitaciones.
+### 🎓 Participante
+- Ver capacitaciones disponibles  
+- Inscribirse  
+- Descargar certificados aprobados  
 
-Límite de cupos y control de inscripciones.
+---
 
-Gestión de asistencias.
+## 🛠️ Tecnologías Utilizadas
 
-Carga de notas finales.
+### Backend
+- 🐘 PHP 8.2+  
+- 🎯 Laravel 12  
+- ⚡ Livewire 3  
+- 🔐 Laravel Breeze  
+- 📦 Composer  
 
-Emisión de certificados.
+### Frontend
+- 🎨 TailwindCSS  
+- 🧩 Blade Templates  
+- ⚡ Livewire Components  
+- 🚀 Vite + npm  
 
-Panel administrativo con estadísticas.
+### Base de datos
+- 🐬 MySQL  
+- 🧱 SQLite (para testing)  
 
-Interfaz responsive con Tailwind.
+---
 
-Componentes dinámicos con Livewire (validaciones + acciones en tiempo real).
+## 🧱 Modelo de Datos (Simplificado)
 
-Migraciones, Seeders y estructura escalable.
+### 👤 Tabla: `users`
+- id
+- name
+- email
+- password
+- role (admin/docente/participante)
+- timestamps
 
-📂 Módulos principales
-Rol	Permisos
-Administrador	Crear/editar/eliminar capacitaciones, gestionar docentes, ver inscripciones, administrar notas, asistencia, certificados.
-Docente	Gestionar asistencia, subir notas finales, visualizar alumnos inscriptos.
-Participante	Ver capacitaciones, inscribirse, descargar certificados aprobados.
-🛠️ Tecnologías usadas
-Backend
 
-PHP 8.2+
+### 📚 Tabla: `capacitaciones`
+- id
+- titulo
+- descripcion
+- fecha_inicio
+- fecha_fin
+- cupos_maximos
+- docente_id (FK → users)
+- timestamps
 
-Laravel 12
 
-Livewire 3
+### 📝 Tabla: `inscripciones`
+- id
+- user_id (FK)
+- capacitaciones_id (FK)
+- estado
+- comentario
+- timestamps
+- UNIQUE (user_id, capacitaciones_id)
 
-Laravel Breeze (autenticación)
 
-Composer
+### 📅 Tabla: `asistencias`
+- id
+- inscripcion_id (FK)
+- fecha
+- asistio (boolean)
+- timestamps
 
-Frontend
 
-TailwindCSS
+### 🧮 Tabla: `notas_finales`
+- id
+- inscripcion_id (FK)
+- nota
+- estado
+- timestamps
 
-Blade Templates
 
-Livewire Components
+---
 
-Vite
+## 🔄 Flujo Completo de una Capacitación
 
-Base de datos
+1. 🛡️ Administrador crea capacitación y asigna docente.  
+2. 🎓 Participante se inscribe.  
+3. 🔎 El sistema valida cupos y evita inscripciones duplicadas.  
+4. 🧑‍🏫 Docente registra asistencia en cada clase.  
+5. 🧮 Docente carga nota final.  
+6. 🏅 Si aprueba → certificado disponible para descargar.  
+7. 📊 Administrador revisa métricas y estados generales.  
 
-MySQL (producción / desarrollo)
+---
 
-SQLite (modo testing)
+## 💻 Instalación y Ejecución
 
-Otros
-
-Git + GitHub
-
-MVC
-
-Migraciones y Seeders
-
-Artisan CLI
-
-🧱 Modelo de datos (simplificado)
-Tabla: users
-id
-name
-email
-password
-role (admin, docente, participante)
-timestamps
-
-Tabla: capacitaciones
-id
-titulo
-descripcion
-fecha_inicio
-fecha_fin
-cupos_maximos
-docente_id (FK → users)
-timestamps
-
-Tabla: inscripciones
-id
-user_id (FK)
-capacitaciones_id (FK)
-estado (pendiente/aceptado/rechazado)
-comentario
-timestamps
-UNIQUE (user_id, capacitaciones_id)
-
-Tabla: asistencias
-id
-inscripcion_id (FK)
-fecha
-asistio (boolean)
-timestamps
-
-Tabla: notas_finales
-id
-inscripcion_id (FK)
-nota
-estado (aprobado/desaprobado)
-timestamps
-
-Relaciones:
-
-Un docente puede tener varias capacitaciones.
-
-Una capacitacion posee muchos inscriptos.
-
-Un participante puede inscribirse sólo una vez por capacitación.
-
-La asistencia y la nota final pertenecen a cada inscripción.
-
-Los certificados se generan únicamente si la nota final es aprobada.
-
-🔄 Flujo completo de una capacitación
-
-Administrador crea una capacitación y asigna un docente.
-
-Participantes pueden ver la lista de capacitaciones y inscribirse.
-
-El sistema valida cupos y duplicados.
-
-Una vez iniciada la capacitación:
-
-El docente registra asistencia por clase.
-
-El docente carga nota final.
-
-Si el alumno aprueba:
-→ El sistema habilita la descarga del certificado.
-
-El administrador puede ver métricas, inscripciones y reportes generales.
-
-💻 Instalación y configuración
-# Clonar repositorio
+```bash
 git clone https://github.com/FabioArias23/AACOP.git
 cd AACOP
 
-# Instalar dependencias
 composer install
 npm install
 
-# Configurar archivo .env
 cp .env.example .env
 php artisan key:generate
 
-# Configurar la base de datos en .env
-
-# Migrar tablas
 php artisan migrate --seed
 
-# Ejecutar servidor
+npm run dev
 php artisan serve
 
-# Compilar assets
-npm run dev
 
-👨‍💻 Equipo de desarrollo
+📁 Estructura del Proyecto
 
-María Teresa Zamboni — Frontend · Livewire · UI/UX
+app/
+  Http/
+  Models/
+  Livewire/
+resources/
+  views/
+  css/
+  js/
+database/
+  migrations/
+routes/
+  web.php
 
-Fabio Arias — Backend · Arquitectura
+  👨‍💻 Equipo de Desarrollo
 
-Leonardo Arce — Base de datos · Integraciones
+🎨 María Teresa Zamboni — Frontend · UI/UX · Livewire
 
-📄 Licencia
+💻 Fabio Arias — Backend · Arquitectura
 
-MIT – Uso académico.
+🗄️ Leonardo Arce — Base de Datos · Integraciones
+
+📜 Licencia
+
+MIT — Uso académico.
