@@ -1,21 +1,28 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
-use App\Livewire\Admin\CampusManagement;
+// Controladores
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ExportController;
+
+// Componentes Livewire (Dashboards)
 use App\Livewire\Admin\Dashboard as AdminDashboard;
 use App\Livewire\Teacher\Dashboard as TeacherDashboard;
 use App\Livewire\Student\Dashboard as StudentDashboard;
 
-use App\Http\Controllers\Admin\DocenteController;
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
 
-// Redirige la ruta raíz a la página de login
+// Redirección inicial
 Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// Ruta de dashboard principal - redirige según el rol del usuario
+// Redirección inteligente basada en el Rol
 Route::get('/dashboard', function () {
     $user = auth()->user();
 
@@ -23,64 +30,69 @@ Route::get('/dashboard', function () {
         return redirect()->route('login');
     }
 
-    switch ($user->role) {
-        case 'admin':
-            return redirect()->route('admin.dashboard');
-        case 'docente':
-            return redirect()->route('teacher.dashboard');
-        case 'participante':
-        default:
-            return redirect()->route('student.dashboard');
-    }
+    // Asegúrate de que estos roles coincidan exactamente con lo que hay en tu DB (Supabase)
+    return match ($user->role) {
+        'admin'   => redirect()->route('admin.dashboard'),
+        'teacher' => redirect()->route('teacher.dashboard'), // Antes era 'docente'
+        'student' => redirect()->route('student.dashboard'), // Antes era 'participante'
+        default   => redirect()->route('login'), // Por seguridad
+    };
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 
-// --- RUTAS PARA ADMINISTRADOR ---
+// =========================================================================
+// 🛡️ RUTAS DE ADMINISTRADOR
+// =========================================================================
 Route::middleware(['auth', 'verified'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
 
-        // Dashboard del administrador (Livewire)
+        // Panel Principal (SPA con Livewire)
+        // Maneja: catalog, campus, schedule, participants, teachers, attendance, certificates, reports
         Route::get('/dashboard/{section?}', AdminDashboard::class)
             ->name('dashboard')
-            ->where(
-                'section',
-                'dashboard|catalog|campus|schedule|participants|teachers|attendance|certificates|reports'
-            );
+            ->where('section', 'dashboard|catalog|campus|schedule|participants|teachers|attendance|certificates|reports');
 
-        // Gestión de campus (ruta que ya tenías)
-        Route::get('/campus-management', CampusManagement::class)
-            ->name('campus-management');
-
-        // NUEVO: CRUD de Docentes
-        Route::resource('docentes', DocenteController::class)->except(['show']);
+        // Exportación de Excel
+        Route::get('/export/participants', [ExportController::class, 'exportParticipants'])
+            ->name('export.participants');
     });
 
 
-// --- RUTAS PARA DOCENTE ---
+// =========================================================================
+// 🧑‍🏫 RUTAS DE DOCENTE
+// =========================================================================
 Route::middleware(['auth', 'verified'])
     ->prefix('teacher')
     ->name('teacher.')
     ->group(function () {
+
+        // Panel Docente (SPA con Livewire)
         Route::get('/dashboard/{section?}', TeacherDashboard::class)
             ->name('dashboard')
-            ->where('section', 'dashboard|courses|attendance|grades');
+            ->where('section', 'dashboard|classes|attendance|grades');
     });
 
 
-// --- RUTAS PARA ESTUDIANTE ---
+// =========================================================================
+// 🎓 RUTAS DE ESTUDIANTE
+// =========================================================================
 Route::middleware(['auth', 'verified'])
     ->prefix('student')
     ->name('student.')
     ->group(function () {
+
+        // Panel Estudiante (SPA con Livewire)
         Route::get('/dashboard/{section?}', StudentDashboard::class)
             ->name('dashboard')
             ->where('section', 'dashboard|courses|enrollments|progress');
     });
 
 
-// RUTAS DE PERFIL
+// =========================================================================
+// 👤 PERFIL DE USUARIO
+// =========================================================================
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
